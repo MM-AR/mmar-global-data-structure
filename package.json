@@ -1,0 +1,26 @@
+{
+  "name": "mmar-global-data-structure",
+  "version": "1.1.0",
+  "description": "This the shared structure of the mmar project",
+  "author": "Fabian Muff & Daniel Borcard",
+  "license": "AGPL-3.0",
+  "scripts": {
+    "build": "npm install && copyfiles \"package*.json\" \"../dist/mmar-global-data-structure\" && npm install --prefix ../dist/mmar-global-data-structure"
+  },
+  "dependencies": {
+    "class-transformer": "0.5.1",
+    "dotenv": "16.4.5",
+    "jsonwebtoken": "9.0.2",
+    "uuid": "9.0.1"
+  },
+  "devDependencies": {
+    "@types/jsonwebtoken": "9.0.2",
+    "@typescript-eslint/eslint-plugin": "8.18.0",
+    "@typescript-eslint/parser": "8.18.0",
+    "copyfiles": "2.4.1",
+    "eslint": "9.16.0",
+    "eslint-plugin-import": "2.31.0",
+    "typescript": "5.7.2"
+  },
+  "Dependencies": {}
+}
