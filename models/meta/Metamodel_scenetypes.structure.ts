@@ -4,6 +4,7 @@ import {Relationclass} from "./Metamodel_relationclasses.structure";
 import {Attribute} from "./Metamodel_attributes.structure";
 import {Port} from "./Metamodel_ports.structure";
 import {Type} from "class-transformer";
+import { Procedure } from "./Metamodel_procedure.structure";
 
 export {SceneType};
 
@@ -12,6 +13,7 @@ class SceneType extends MetaObject {
     @Type(() => Relationclass) public relationclasses: Relationclass[];
     @Type(() => Attribute) public attributes: Attribute[];
     @Type(() => Port) public ports: Port[];
+    @Type(() => Procedure) public procedures: Procedure[];
 
     //fully specified or minimal
     constructor(
@@ -20,7 +22,8 @@ class SceneType extends MetaObject {
         c?: Class[],
         rc?: Relationclass[],
         a?: Attribute[],
-        p?: Port[]
+        p?: Port[],
+        procedures?: Procedure[]
     ) {
         super(uuid, name);
         if (c) {
@@ -42,6 +45,11 @@ class SceneType extends MetaObject {
             this.set_port(p);
         } else {
             this.ports = [];
+        }
+        if (procedures) {
+            this.procedures = procedures;
+        } else {
+            this.procedures = [];
         }
     }
 
@@ -111,6 +119,22 @@ class SceneType extends MetaObject {
         return this.ports;
     }
 
+    set_procedure(procedures: Procedure[]) {
+        this.procedures = procedures;
+    }
+
+    get_procedure() {
+        return this.procedures;
+    }
+
+    add_procedure(procedure: Procedure) {
+        this.procedures.push(procedure);
+    }
+
+    remove_procedure(uuid: UUID) {
+        this.procedures = this.procedures.filter((p) => p.get_uuid() !== uuid);
+    }
+
     get_attributes_difference(attribute_to_compare: Attribute[]): {
         added: Attribute[];
         removed: Attribute[];
@@ -143,11 +167,20 @@ class SceneType extends MetaObject {
         return this.get_collection_difference<Port>(ports_to_compare, this.get_port());
     }
 
+    get_procedures_difference(procedures_to_compare: Procedure[]): {
+        added: Procedure[];
+        removed: Procedure[];
+        modified: Procedure[];
+    } {
+        return this.get_collection_difference<Procedure>(procedures_to_compare, this.get_procedure());
+    }
+
     set_allArrays(
         c?: Class[],
         rc?: Relationclass[],
         a?: Attribute[],
-        p?: Port[]
+        p?: Port[],
+        procedures?: Procedure[]
     ) {
         if (c) {
             this.set_class(c);
@@ -160,6 +193,9 @@ class SceneType extends MetaObject {
         }
         if (p) {
             this.set_port(p);
+        }
+        if (procedures) {
+            this.set_procedure(procedures);
         }
     }
 }
