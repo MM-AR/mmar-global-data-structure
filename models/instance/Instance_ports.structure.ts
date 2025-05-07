@@ -13,14 +13,14 @@ export class PortInstance extends ObjectInstance {
     constructor(
         uuid: UUID,
         uuid_port: UUID,
-        uuid_port_instance?: UUID,
+        uuid_class_instance?: UUID,
         uuid_scene_instance?: UUID,
         attribute_instances?: AttributeInstance[]
     ) {
         super(uuid);
         this.uuid_port = uuid_port;
-        if (uuid_port_instance) {
-            this.uuid_class_instance = uuid_port_instance;
+        if (uuid_class_instance) {
+            this.uuid_class_instance = uuid_class_instance;
         }
         if (uuid_scene_instance) {
             this.uuid_scene_instance = uuid_scene_instance;
