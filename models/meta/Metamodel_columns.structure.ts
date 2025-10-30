@@ -13,15 +13,20 @@ class ColumnStructure {
   @Type(() => Number) public sequence: number;
   @Type(() => Number) public width: number;
   @Type(() => String) public comment: string;
+  @Type(() => String) public ui_component: string;
 
   constructor(
     attribute: Attribute,
     sequence: number,
     width?: number,
-    comment?: string
+    comment?: string,
+    ui_component?: string
   ) {
     this.attribute = attribute;
     this.sequence = sequence;
+    if (ui_component) {
+      this.ui_component = ui_component;
+    }
     if (width) {
       this.width = width;
     }
@@ -42,6 +47,9 @@ class ColumnStructure {
   get_comment() {
     return this.comment;
   }
+  get_ui_component() {
+    return this.ui_component;
+  }
 
   set_attribute(at: Attribute) {
     this.attribute = at;
@@ -54,5 +62,8 @@ class ColumnStructure {
   }
   set_comment(comment: string) {
     this.comment = comment;
+  }
+  set_ui_component(ui_component: string) {
+    this.ui_component = ui_component;
   }
 }
