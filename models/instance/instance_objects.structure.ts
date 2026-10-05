@@ -1,5 +1,23 @@
 import {Point2D, Point3D, Quaternion, UUID} from "../meta/Metamodel_metaobjects.structure";
 import {Expose, plainToInstance, Transform, Type} from "class-transformer";
+import {WriteSpec, write_would_change} from "../write_difference";
+
+/**
+ * @description - The columns of instance_object that Instance_objects_connection
+ * .update writes, all of them as coalesce($n, column). Every instance class goes
+ * through it, so every spec starts from this list.
+ */
+export const INSTANCE_OBJECT_WRITE_FIELDS = [
+    "name",
+    "description",
+    "geometry",
+    "coordinates_2d",
+    "relative_coordinate_3d",
+    "absolute_coordinate_3d",
+    "rotation",
+    "visibility",
+    "custom_variables",
+];
 
 export class ObjectInstance {
     @Type(() => String) public uuid: UUID;
@@ -7,7 +25,6 @@ export class ObjectInstance {
     @Type(() => String) public description: string;
 
     @Type(() => Function)
-    // eslint-disable-next-line @typescript-eslint/ban-types
     public geometry: Function;
 
     @Type(() => Point2D)
@@ -200,6 +217,36 @@ export class ObjectInstance {
     }
 
 
+    /**
+     * @description - What a write of this object puts in the database. The base
+     * class does not describe itself, so a bare ObjectInstance is always
+     * reported as modified; the concrete classes below override this.
+     * @returns {WriteSpec | null} - The specification, or null when the write is
+     * not modelled and the object must always be written.
+     */
+    get_write_spec(): WriteSpec | null {
+        return null;
+    }
+
+    /**
+     * @description - Compare an incoming collection against the stored one and
+     * report what has to be created, deleted and written.
+     *
+     * Indexed by uuid on both sides rather than scanned: the previous version ran
+     * Array.includes over one collection and Array.find over the other from inside
+     * a loop, which is quadratic. A scene of 500 objects therefore cost a quarter
+     * of a million comparisons per collection, per request, on the event loop.
+     *
+     * `modified` holds the objects present on both sides that a write would
+     * actually change. It used to hold every object present on both sides,
+     * without comparing a field, and the callers write everything in `modified`:
+     * an autosave that moved one node of a 150-object scene rewrote all of it.
+     * A class that does not describe its write in get_write_spec is still always
+     * reported, so an unmodelled write path is never skipped.
+     * @param {T[]} collection_to_compare - The incoming collection.
+     * @param {T[]} current_collection - The collection as currently stored.
+     * @returns {{added: T[], removed: T[], modified: T[]}} - The difference.
+     */
     get_collection_difference<T extends ObjectInstance>(collection_to_compare: T[], current_collection: T[]):
         {
             added: T[];
@@ -222,24 +269,28 @@ export class ObjectInstance {
             };
         }
 
-        const current_T_uuids = current_collection.map((a) => a.get_uuid());
-        const T_to_compare_uuids = collection_to_compare.map((a) => a.get_uuid());
+        // The first occurrence of a uuid wins, which is what Array.find returned.
+        const incoming_by_uuid = new Map<UUID, T>();
+        for (const T of collection_to_compare) {
+            if (!incoming_by_uuid.has(T.get_uuid())) {
+                incoming_by_uuid.set(T.get_uuid(), T);
+            }
+        }
+        const current_uuids = new Set<UUID>(
+            current_collection.map((a) => a.get_uuid())
+        );
 
-        // Identify removed and modified attributes in one loop
         for (const T of current_collection) {
-            const uuid = T.get_uuid();
-            if (!T_to_compare_uuids.includes(uuid)) {
+            const incoming = incoming_by_uuid.get(T.get_uuid());
+            if (incoming === undefined) {
                 removed.push(T);
-            } else {
-                const modified_T = collection_to_compare.find((a) => a.get_uuid() === uuid);
-                if (modified_T) modified.push(modified_T);
+            } else if (write_would_change(incoming, T)) {
+                modified.push(incoming);
             }
         }
 
-        // Identify added attributes
         for (const T of collection_to_compare) {
-            const uuid = T.get_uuid();
-            if (!current_T_uuids.includes(uuid)) {
+            if (!current_uuids.has(T.get_uuid())) {
                 added.push(T);
             }
         }
@@ -247,7 +298,6 @@ export class ObjectInstance {
         return {added, removed, modified};
     }
 
-    // eslint-disable-next-line @typescript-eslint/ban-types
     set_allAttributs(
         name: string,
         description: string,

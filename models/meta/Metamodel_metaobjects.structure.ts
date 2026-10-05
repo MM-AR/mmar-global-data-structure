@@ -1,4 +1,5 @@
 import {Expose, plainToInstance, Transform, Type} from "class-transformer";
+import {WriteSpec, write_would_change} from "../write_difference";
 
 export type UUID = string;
 
@@ -35,12 +36,25 @@ export class Quaternion {
 
 //export type Point3D = {x:number, y:number, z:number};
 
+/**
+ * @description - The columns of metaobject that update_metaObject writes, all of
+ * them as coalesce($n, column). Note that rotation is not among them, although
+ * the class carries one.
+ */
+export const METAOBJECT_WRITE_FIELDS = [
+    "name",
+    "description",
+    "geometry",
+    "coordinates_2d",
+    "relative_coordinate_3d",
+    "absolute_coordinate_3d",
+];
+
 class MetaObject {
     @Type(() => String) public uuid: UUID;
     @Type(() => String) public name: string;
 
     @Type(() => Function)
-    // eslint-disable-next-line @typescript-eslint/ban-types
     public geometry: Function;
 
     @Type(() => String)
@@ -74,12 +88,10 @@ class MetaObject {
     ) //convert the plain text to proper json
     public rotation: Quaternion;
 
-    // eslint-disable-next-line @typescript-eslint/ban-types
     constructor(
         uuid: UUID,
         name: string,
         description?: string,
-        // eslint-disable-next-line @typescript-eslint/ban-types
         geometry?: Function,
         coordinates_2d?: Point3D,
         relative_coordinate_3d?: Point3D,
@@ -131,7 +143,6 @@ class MetaObject {
         return this.name;
     }
 
-    // eslint-disable-next-line @typescript-eslint/ban-types
     set_geometry(geometry: Function) {
         this.geometry = geometry;
     }
@@ -156,7 +167,6 @@ class MetaObject {
         this.rotation = rotation;
     }
 
-    // eslint-disable-next-line @typescript-eslint/ban-types
     set_allAttributes(
         description: string,
         geometry: any,
@@ -182,6 +192,34 @@ class MetaObject {
         this.set_rotation(object.rotation);
     }
 
+    /**
+     * @description - What a write of this object puts in the database. The base
+     * class does not describe itself, so a bare MetaObject is always reported as
+     * modified; the concrete classes override this.
+     * @returns {WriteSpec | null} - The specification, or null when the write is
+     * not modelled and the object must always be written.
+     */
+    get_write_spec(): WriteSpec | null {
+        return null;
+    }
+
+    /**
+     * @description - Compare an incoming collection against the stored one and
+     * report what has to be created, deleted and written.
+     *
+     * Indexed by uuid on both sides rather than scanned: the previous version ran
+     * Array.includes over one collection and Array.find over the other from inside
+     * a loop, which is quadratic in the size of the metamodel.
+     *
+     * `modified` holds the objects present on both sides that a write would
+     * actually change; it used to hold every object present on both sides,
+     * without comparing a field. A class that does not describe its write in
+     * get_write_spec is still always reported, so an unmodelled write path is
+     * never skipped.
+     * @param {T[]} collection_to_compare - The incoming collection.
+     * @param {T[]} current_collection - The collection as currently stored.
+     * @returns {{added: T[], removed: T[], modified: T[]}} - The difference.
+     */
     get_collection_difference<T extends MetaObject>(collection_to_compare: T[], current_collection: T[]):
         {
             added: T[];
@@ -194,24 +232,28 @@ class MetaObject {
 
         if (typeof collection_to_compare === "undefined") return {added, removed, modified};
 
-        const current_T_uuids = current_collection.map((a) => a.get_uuid());
-        const T_to_compare_uuids = collection_to_compare.map((a) => a.get_uuid());
+        // The first occurrence of a uuid wins, which is what Array.find returned.
+        const incoming_by_uuid = new Map<UUID, T>();
+        for (const T of collection_to_compare) {
+            if (!incoming_by_uuid.has(T.get_uuid())) {
+                incoming_by_uuid.set(T.get_uuid(), T);
+            }
+        }
+        const current_uuids = new Set<UUID>(
+            current_collection.map((a) => a.get_uuid())
+        );
 
-        // Identify removed and modified attributes in one loop
         for (const T of current_collection) {
-            const uuid = T.get_uuid();
-            if (!T_to_compare_uuids.includes(uuid)) {
+            const incoming = incoming_by_uuid.get(T.get_uuid());
+            if (incoming === undefined) {
                 removed.push(T);
-            } else {
-                const modified_T = collection_to_compare.find((a) => a.get_uuid() === uuid);
-                if (modified_T) modified.push(modified_T);
+            } else if (write_would_change(incoming, T)) {
+                modified.push(incoming);
             }
         }
 
-        // Identify added attributes
         for (const T of collection_to_compare) {
-            const uuid = T.get_uuid();
-            if (!current_T_uuids.includes(uuid)) {
+            if (!current_uuids.has(T.get_uuid())) {
                 added.push(T);
             }
         }

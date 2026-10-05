@@ -7,6 +7,15 @@ import {
   SceneTypeReference,
 } from "./Metamodel_references.structure";
 import { Type } from "class-transformer";
+import { METAOBJECT_WRITE_FIELDS } from "./Metamodel_metaobjects.structure";
+import { WriteSpec } from "../write_difference";
+// `Class` is not referenced by this module's own code, but removing this import
+// REORDERS mmar-server's generated schemas.json: typescript-json-schema emits
+// definitions in the order the program reaches them, and this import is what
+// reaches Metamodel_classes before the roles do. The generated content is
+// identical either way - only the key order moves - but the server pins
+// schemas.json as a byte-identical invariant, so the import stays.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import {Class} from "./Metamodel_classes.structure";
 
 export class Role extends MetaObject {
@@ -226,5 +235,25 @@ export class Role extends MetaObject {
     if (pr) {
       this.set_port_reference(pr);
     }
+  }
+
+  /**
+   * @description - Metamodel_roles_connection.update writes metaobject, then
+   * upserts every reference it is given with min and max. A reference is not a
+   * MetaObject, so each list is compared whole rather than walked: the upsert
+   * writes back what is already stored when they match.
+   * @returns {WriteSpec} - What a write of this role would put in the database.
+   */
+  get_write_spec(): WriteSpec {
+    return {
+      fields: [...METAOBJECT_WRITE_FIELDS],
+      hard_fields: [
+        "class_references",
+        "relationclass_references",
+        "scenetype_references",
+        "port_references",
+        "attribute_references",
+      ],
+    };
   }
 }

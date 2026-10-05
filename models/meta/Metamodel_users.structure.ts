@@ -1,6 +1,5 @@
 import {MetaObject, UUID} from "./Metamodel_metaobjects.structure";
 import {Type} from "class-transformer";
-import * as jwt from "jsonwebtoken";
 import {Usergroup} from "./Metamodel_usergroups.structure";
 
 export {User};
@@ -26,13 +25,9 @@ class User extends MetaObject {
         if (has_user_group) this.has_user_group = has_user_group;
     }
 
-    static get_jwt_secret(): string {
-        return process.env.JWT_SECRET as string;
-    }
-
-    can_user_create_instances(): boolean {
+    can_user_create_instance(): boolean {
         return this.has_user_group.some(
-            (usergroup) => usergroup.can_create_instances,
+            (usergroup) => usergroup.can_create_instance,
         );
     }
 
@@ -44,14 +39,6 @@ class User extends MetaObject {
 
     can_user_create_attribute(): boolean {
         return this.has_user_group.some((usergroup) => usergroup.can_create_attribute);
-    }
-
-    generate_token(): string {
-        const jwt_secret = User.get_jwt_secret();
-        this.token = jwt.sign(this.toJsonForToken(), jwt_secret, {
-            expiresIn: process.env.TOKEN_EXPIRE_TIME,
-        });
-        return this.token;
     }
 
     can_user_create_class(): boolean {
@@ -116,18 +103,20 @@ class User extends MetaObject {
         return this.get_collection_difference<Usergroup>(user_group_to_compare, this.has_user_group)
     }
 
+    /**
+     * @description - Whether this user belongs to a group flagged as
+     * administrative. It replaces a comparison against one hardcoded username and
+     * uuid, which could be granted to no one else and revoked from no one.
+     *
+     * This reflects the groups loaded onto the object, so it answers the question
+     * for a user read from the database. A request is authorised against the
+     * database instead — see require_administrator in the server — because the
+     * claim carried by a token is only as fresh as the token.
+     * @returns {boolean} - True if the user is an administrator.
+     */
     is_admin(): boolean {
-        return (
-            this.get_username() == "admin" &&
-            this.get_uuid() == "ff892138-77e0-47fe-a323-3fe0e1bf0240"
+        return (this.has_user_group ?? []).some(
+            (usergroup) => usergroup.is_administrator,
         );
-    }
-
-    private toJsonForToken() {
-        return {
-            username: this.username,
-            uuid: this.get_uuid(),
-            isAdmin: this.is_admin(),
-        };
     }
 }

@@ -7,7 +7,7 @@ class Usergroup extends MetaObject {
     @Type(() => MetaObject) public read_right: UUID[];
     @Type(() => MetaObject) public write_right: UUID[];
     @Type(() => MetaObject) public delete_right: UUID[];
-    @Type(() => MetaObject) public can_create_instances: UUID[]; // list of meta objects uuids that can create instances of this meta object
+    @Type(() => MetaObject) public can_create_instance: UUID[]; // list of meta objects uuids that can create instances of this meta object
     @Type(() => MetaObject) public can_create_scenetype: boolean;
     @Type(() => MetaObject) public can_create_attribute: boolean; // list of parent uuid
     @Type(() => MetaObject) public can_create_attribute_type: boolean; // list of parent uuid
@@ -18,6 +18,13 @@ class Usergroup extends MetaObject {
     @Type(() => MetaObject) public can_create_procedure: boolean; // list of parent uuid
     @Type(() => MetaObject) public can_create_user_group: boolean; // list of parent uuid
 
+    /**
+     * @description - Whether membership of this group confers administrator
+     * status: every right check passes, and only administrators may create
+     * accounts. A deployment may flag more than one group.
+     */
+    @Type(() => Boolean) public is_administrator: boolean;
+
     constructor(
         uuid: UUID,
         name: string,
@@ -25,7 +32,7 @@ class Usergroup extends MetaObject {
         read_right?: UUID[],
         write_right?: UUID[],
         delete_right?: UUID[],
-        can_create_instances?: UUID[],
+        can_create_instance?: UUID[],
         can_create_scenetype?: boolean,
         can_create_attribute?: boolean,
         can_create_attribute_type?: boolean,
@@ -34,13 +41,14 @@ class Usergroup extends MetaObject {
         can_create_port?: boolean,
         can_create_role?: boolean,
         can_create_procedure?: boolean,
-        can_create_user_group?: boolean
+        can_create_user_group?: boolean,
+        is_administrator?: boolean
     ) {
         super(uuid, name, description);
         this.read_right = read_right || [];
         this.write_right = write_right || [];
         this.delete_right = delete_right || [];
-        this.can_create_instances = can_create_instances || [];
+        this.can_create_instance = can_create_instance || [];
         this.can_create_scenetype = can_create_scenetype || false;
         this.can_create_attribute = can_create_attribute || false;
         this.can_create_attribute_type = can_create_attribute_type || false;
@@ -50,6 +58,11 @@ class Usergroup extends MetaObject {
         this.can_create_role = can_create_role || false;
         this.can_create_procedure = can_create_procedure || false;
         this.can_create_user_group = can_create_user_group || false;
+        this.is_administrator = is_administrator || false;
+    }
+
+    get_is_administrator(): boolean {
+        return this.is_administrator;
     }
 
     get_read_right(): UUID[] {
@@ -104,20 +117,20 @@ class Usergroup extends MetaObject {
         );
     }
 
-    get_can_create_instances(): UUID[] {
-        return this.can_create_instances;
+    get_can_create_instance(): UUID[] {
+        return this.can_create_instance;
     }
 
-    set_can_create_instances(can_create_instance: UUID[]): void {
-        this.can_create_instances = can_create_instance;
+    set_can_create_instance(can_create_instance: UUID[]): void {
+        this.can_create_instance = can_create_instance;
     }
 
-    add_can_create_instances(can_create_instance: UUID): void {
-        this.can_create_instances.push(can_create_instance);
+    add_can_create_instance(can_create_instance: UUID): void {
+        this.can_create_instance.push(can_create_instance);
     }
 
-    remove_can_create_instances(can_create_instance: UUID): void {
-        this.can_create_instances = this.can_create_instances.filter(
+    remove_can_create_instance(can_create_instance: UUID): void {
+        this.can_create_instance = this.can_create_instance.filter(
             (right) => right !== can_create_instance
         );
     }
@@ -241,9 +254,9 @@ class Usergroup extends MetaObject {
         return this.get_right_difference(delete_rights_to_compare, this.delete_right);
     }
 
-    get_can_create_instances_difference(can_create_instances_to_compare: UUID[]):
+    get_can_create_instance_difference(can_create_instance_to_compare: UUID[]):
         { added: UUID[], removed: UUID[], modified: UUID[] } {
-        return this.get_right_difference(can_create_instances_to_compare, this.can_create_instances);
+        return this.get_right_difference(can_create_instance_to_compare, this.can_create_instance);
     }
 
     private get_right_difference(right_to_compare: UUID[], current_right: UUID[]): {
