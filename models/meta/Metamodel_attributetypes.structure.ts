@@ -1,5 +1,7 @@
 import {MetaObject, UUID} from "./Metamodel_metaobjects.structure";
 import {Type} from "class-transformer";
+import {METAOBJECT_WRITE_FIELDS} from "./Metamodel_metaobjects.structure";
+import {WriteSpec} from "../write_difference";
 import {Role} from "./Metamodel_roles.structure";
 import {ColumnStructure} from "./Metamodel_columns.structure";
 
@@ -7,7 +9,10 @@ export {AttributeType};
 
 class AttributeType extends MetaObject {
     @Type(() => Boolean) public pre_defined: boolean;
-    @Type(() => RegExp) public regex_value: RegExp;
+    // The database column is text and the API carries text: a pattern is written by
+    // hand in the metamodeling client, never built as a RegExp. It was declared a
+    // RegExp here, which every reader had to cast its way out of.
+    @Type(() => String) public regex_value: string;
     @Type(() => Role) public role: Role;
     @Type(() => ColumnStructure) public has_table_attribute: ColumnStructure[];
 
@@ -15,7 +20,7 @@ class AttributeType extends MetaObject {
         uuid: UUID,
         name: string,
         pre_defined: boolean,
-        regex_value: RegExp,
+        regex_value: string,
         has_table_attribute?: ColumnStructure[],
         r?: Role
     ) {
@@ -54,7 +59,7 @@ class AttributeType extends MetaObject {
         return this.regex_value;
     }
 
-    set_regex_value(regex_value: RegExp) {
+    set_regex_value(regex_value: string) {
         this.regex_value = regex_value;
     }
 
@@ -110,5 +115,21 @@ class AttributeType extends MetaObject {
         }
 
         return {added, removed, modified};
+    }
+
+    /**
+     * @description - Metamodel_attribute_types_connection.update writes metaobject,
+     * then update_attributeType, then the role, then the table columns. A column is
+     * a ColumnStructure and has no uuid of its own, so the column list is compared
+     * whole rather than walked.
+     * @returns {WriteSpec} - What a write of this attribute type would put in the
+     * database.
+     */
+    get_write_spec(): WriteSpec {
+        return {
+            fields: [...METAOBJECT_WRITE_FIELDS, "pre_defined", "regex_value"],
+            hard_fields: ["has_table_attribute"],
+            children: ["role"],
+        };
     }
 }
